@@ -1,20 +1,18 @@
 """This module implements the Lattice base class for the LGT children classes"""
 
 import numpy as np
-from itertools import chain
+from itertools import chain, product
 from typing import Tuple, List
 # from .drawing import LatticeDrawer
-# from ..utils.iter import zip_nearest
 from painting import paint_lattice
-from matplotlib import transforms
+# from ..utils.iter import zip_nearest
 
 # Type hintings
 Site = Tuple[int, int]
-Plaquette = Tuple[int, int, int]
-Star = Tuple[int, int, int, int, int, int]
+Plaquette = Tuple[int, int, int, int]
+Star = Tuple[int, int, int, int]
 
-
-
+#
 def cyclic_perm(lst, n=1):
     return lst[n:] + lst[:n]
 
@@ -25,26 +23,11 @@ def zip_nearest(lst, periodic=True, step=1):
         return zip(lst[:-step], lst[step:])
 
 
-
-class LatticeError(Exception):
+class LatticeError(RuntimeError):
     pass
 
-
-def _triangle_sites(length_x: int, length_y: int):
-     return [ (x, y) for y in range(length_y) for x in range(length_x - y)]
-
-def _parallelogram_sites(length_x: int, length_y: int):
-    return [ (x, y) for y in range(length_y) for x in range(length_x)]
-
-def _hexagon_sites(length_x: int, length_y: int):
-    mid_length = length_y // 2
-    lst1 = [ (x, y) for y in range(mid_length) for x in range(-y, length_x)]
-    lst2 = [ (x, y) for y in range(mid_length, length_y) for x in range(-mid_length, length_x - (y - mid_length)) ]
-    return lst1 + lst2
-
-
-class TriangularLattice:
-    def __init__(self, shape: str, size: Tuple[int, int], pbc: Tuple[bool, bool] = (False, False)):
+class SquareLattice:
+    def __init__(self, size: Tuple[int, int], pbc: Tuple[bool, bool]):
         """
         Create an instance of the Lattice class for the given size and
         periodic boundary conditions.
@@ -65,17 +48,15 @@ class TriangularLattice:
         # TODO: Information about the dimension of the local Hilbert space
         #       should be moved to another class.
         #       The lattice class should care only about the lattice
-        self._check_boundary_conditions(shape, pbc)
         self.pbc  = pbc
-        self.lattice_shape = shape
-        self._create_site_list()
-        self.lattice_vectors = [[1, 0], [0, 1], [-1, 1]]
-        self._label_links()
         # self._set_dtype()
+        self.lattice_vectors = [[1, 0], [0, 1]]
+        self._create_site_list()
+        self._label_links()
         # self._lattice_drawer = LatticeDrawer(self)
 
     def __repr__(self):
-        return f"<TriangularLattice: size={self.size}, shape={self.lattice_shape}, pbc={self.pbc}>"
+        return f"<SquareLattice: size={self.size}, pbc={self.pbc}>"
 
     @property
     def Lx(self) -> int:
@@ -89,31 +70,20 @@ class TriangularLattice:
 
     @property
     def pbc_x(self) -> bool:
-        """Returns if x-axis is periodic"""
+        """Returns if x-axis is period"""
         return self.pbc[0]
 
     @property
     def pbc_y(self) -> bool:
-        """Returns if y-axis is periodic"""
+        """Returns if y-axis is period"""
         return self.pbc[1]
-
-    def _check_boundary_conditions(self, shape: str, pbc: tuple[bool, bool]):
-        if pbc[0] == True or pbc[1] == True:
-            if shape != "parallelogram" and shape != "par":
-                raise LatticeError(f"Periodic boundary conditions are valid only for `parallelogram` shape.\n\
-                    The shape `{shape}` has been passed")
 
     def _create_site_list(self):
         """Create list of sites depending on the shape of the lattice"""
-        if self.lattice_shape == "triangle" or self.lattice_shape == "tri":
-            site_list = _triangle_sites(self.Lx, self.Ly)
-        elif self.lattice_shape == "hexagon" or self.lattice_shape == "hex":
-            site_list = _hexagon_sites(self.Lx, self.Ly)
-        elif self.lattice_shape == "parallelogram" or self.lattice_shape == "par":
-            site_list = _parallelogram_sites(self.Lx, self.Ly)
-        else:
-            raise LatticeError(f"Shape `{self.lattice_shape}` not recognized")
-        self._sites = {site: index for index, site in enumerate(site_list)}
+        self._sites = {
+            (site_inverted[1], site_inverted[0]): index
+            for index, site_inverted in enumerate(product(range(self.Ly), range(self.Lx)))
+        }
 
     @property
     def nsites(self) -> int:
@@ -145,13 +115,22 @@ class TriangularLattice:
         """
         return self._sites.get(self._mod_boundary(site), None)
 
+    # def _set_dtype(self):
+    #     """Infer the dtype to use through out the class"""
+    #     if self.spl**self.nlinks <= 2**32:
+    #         self.dtype = np.uint32
+    #     elif self.spl**self.nlinks <= 2**64:
+    #         self.dtype = np.uint64
+    #     else:
+    #         raise LatticeError(f"Lattice with size={self.size} and spl={self.spl} is too big")
+
     def _label_links(self):
         """Labels the links of the lattice"""
         self._link_matrix = np.zeros((self.nsites, self.nsites), dtype=np.int64)
 
         def neighbor_sites(site):
             x, y = site
-            return [(x+ex, y+ey) for ex, ey in self.lattice_vectors]
+            return [(x+e1, y+e2) for e1, e2 in self.lattice_vectors]
 
         link_index = 1
         for site in self._sites:
@@ -165,16 +144,6 @@ class TriangularLattice:
                 self._link_matrix[index1, index0] = link_index
                 link_index = link_index + 1
         self.nlinks = link_index - 1
-
-
-    # def _set_dtype(self):
-    #     """Infer the dtype to use through out the class"""
-    #     if self.spl**self.nlinks <= 2**32:
-    #         self.dtype = np.uint32
-    #     elif self.spl**self.nlinks <= 2**64:
-    #         self.dtype = np.uint64
-    #     else:
-    #         raise LatticeError(f"Lattice with size={self.size} and spl={self.spl} is too big")
 
 
     def link(self, site0: Site, site1: Site, flip=False, from_zero=False) -> int | None:
@@ -211,7 +180,7 @@ class TriangularLattice:
             link_index = self.nlinks - link_index - 1*from_zero
         return int(link_index)
 
-    def plaquette(self, site: Site, type_: int, **kwargs) -> Plaquette | None:
+    def plaquette(self, site: Site, **kwargs) -> Plaquette | None:
         """
         Return the links of a plaquette. The links are oriented
         counterclok-wise starting from the bottom site.
@@ -233,22 +202,15 @@ class TriangularLattice:
             If the plaquette does not exist it returns `None`
         """
         x, y = site
-        if type_ == 1:
-            plaq = (
-                    self.link((x,   y),   (x, y+1), **kwargs),
-                    self.link((x,   y+1), (x-1, y+1), **kwargs),
-                    self.link((x-1, y+1), (x, y),   **kwargs)
-                )
-        else:
-            plaq = (
-                    self.link((x,   y), (x+1, y), **kwargs),
-                    self.link((x+1, y), (x, y+1), **kwargs),
-                    self.link((x, y+1), (x, y),   **kwargs)
-                )
+        plaq = (
+                self.link((x,   y),   (x+1, y),   **kwargs),
+                self.link((x+1, y),   (x+1, y+1), **kwargs),
+                self.link((x+1, y+1), (x,   y+1), **kwargs),
+                self.link((x,   y+1), (x,   y),   **kwargs)
+            )
         if None in plaq:
             return None
         return plaq
-
 
     def star(self, site: Site, **kwargs) -> Star:
         """
@@ -270,17 +232,14 @@ class TriangularLattice:
         star = [
             self.link((x, y), (x+1, y),   **kwargs),
             self.link((x, y), (x,   y+1), **kwargs),
-            self.link((x, y), (x-1, y+1), **kwargs),
-            self.link((x, y), (x-1, y),   **kwargs),
-            self.link((x, y), (x, y-1),   **kwargs),
-            self.link((x, y), (x+1, y-1), **kwargs)
+            self.link((x, y), (x-1, y), **kwargs),
+            self.link((x, y), (x,   y-1),   **kwargs),
         ]
         return [ s for s in star if s is not None ]
 
     @property
     def sites(self) -> List[Site]:
         return list(self._sites.keys())
-
 
     def plaquettes(self, **kwargs) -> List[Plaquette]:
         """
@@ -289,13 +248,11 @@ class TriangularLattice:
         """
         kwargs.setdefault('from_zero', True)
         plaquettes = [
-                        self.plaquette(site, type_, **kwargs)
+                        self.plaquette(site, **kwargs)
                         for site in self.sites
-                        for type_ in [1, 0]
                     ]
         plaquettes = [ p for p in plaquettes if p is not None ]
         return plaquettes
-
 
     def stars(self, **kwargs) -> List[Star]:
         """
@@ -337,9 +294,6 @@ class TriangularLattice:
             sites = [(x, y0) for x in range(x0, x1+step(x0, x1), step(x0, x1))]
         elif x0 == x1:
             sites = [(x0, y) for y in range(y0, y1+step(y0, y1), step(y0, y1))]
-        elif (x1 - x0) == - (y1 - y0):
-            nsteps = (y1 - y0)
-            sites = [(x0-n, y0+n) for n in range(0, nsteps+step(y0, y1), step(y0, y1))]
         else:
             raise LatticeError(f"The sites ({x0}, {y0}) and ({x1}, {y1}) are not aligned")
         path_ = [self.link(prev, next, **kwargs)
@@ -368,7 +322,6 @@ class TriangularLattice:
         Exception
             If the plaquettes are not aligned along a straigth line
         """
-        raise RuntimeError("This method is still not implemented")
         x0, y0 = plq0
         x1, y1 = plq1
         kwargs.setdefault('from_zero', True)
@@ -407,8 +360,7 @@ class TriangularLattice:
         """
         loop_indx = [ self.path(prev, next, **kwargs) for prev, next in zip_nearest(sites, periodic=True) ]
         loop_indx = list(chain.from_iterable(loop_indx))
-        # return np.array(loop_indx, dtype=self.dtype)
-        return np.array(loop_indx)
+        return np.array(loop_indx, dtype=self.dtype)
 
     def string(self, plqs: List[Site], **kwargs):
         """
@@ -455,7 +407,6 @@ class TriangularLattice:
         return "<NOT IMPLEMENTED>"
 
     def draw(self, show_links: bool = True, show_sites: bool = False):
-        transf = transforms.Affine2D().from_values(1, 0, 1/2, np.sqrt(3)/2, 0, 0)
-        paint_lattice(self, transform=transf, show_links=show_links, show_sites=show_sites)
+        paint_lattice(self, show_links=show_links, show_sites=show_sites)
 
 
