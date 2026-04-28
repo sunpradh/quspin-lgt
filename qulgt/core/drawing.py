@@ -130,6 +130,7 @@ class StateDrawer():
 
     def draw_hlinks(self, state, y):
         bulk, edges = self.lattice.hlinks(y, flip=True)
+        # TODO: Bug: does not work with open boundary conditions
         ret = self.offset + self.hlink(self.occ(state, edges[0])) + self.site
         ret += self.site.join([self.hlink(self.occ(state, link)) for link in bulk])
         ret += self.site + self.hlink(self.occ(state, edges[1]))
