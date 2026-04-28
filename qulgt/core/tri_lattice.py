@@ -8,6 +8,29 @@ from qulgt.core.painting import paint_lattice
 
 class TriangularLattice(BaseLattice):
     def __init__(self, shape: str, size: tuple[int, int], pbc: tuple[bool, bool] = (False, False)):
+        """
+        Create a triangular lattice given size, shape and boundary conditions
+
+        Parameters
+        ----------
+        shape: str
+            Shape of the lattice. Available options:
+             - "triangle" or "tri"
+             - "hexagon" or "hex"
+             - "parallelogram" or "par"
+        size : tuple[int, int]
+            Size of the lattice.
+            For all shapes the first value referes to the size of the bottom size,
+            while the second to the total height.
+        pbc : tuple[bool, bool] (default: (False, False))
+            Whether to have periodic boundary conditions along x and y respectively.
+            PBCs are available only for the parallelogram shape.
+
+        Raise
+        ----------
+        LatticeError
+            Either for invalid boundary conditions or invalid shapes
+        """
         self._check_boundary_conditions(shape, pbc)
         self.lattice_shape = shape
         super().__init__(size=size, pbc=pbc, vectors=[[1, 0], [0, 1], [-1, 1]])
@@ -95,7 +118,7 @@ class TriangularLattice(BaseLattice):
 
         Return
         ----------
-        ist[int, ...]
+        list[int, ...]
             A list of link indices, the size of the list depends on
             the position of the site
         """
@@ -135,24 +158,6 @@ class TriangularLattice(BaseLattice):
         """
         # TODO IMPLEMENTATION
         raise RuntimeError("This method is still not implemented")
-        x0, y0, type0 = plq0
-        x1, y1, type1 = plq1
-        # +1 for positive direction, -1 for negative directions:
-        step = lambda a, b: +1 if a <= b else -1
-        # get the correct starting and ending points
-        # depending if we are going in the positive or negative direction
-        begin = lambda a, b: a+1 if a <= b else a
-        end   = lambda a, b: b+1 if a <= b else a
-
-        # is the path horizontal or vertical?
-        if y0 == y1:
-            pairs = [((x, y0), (x, y0+1)) for x in range(begin(x0, x1), end(x0, x1), step(x0, x1))]
-        elif x0 == x1:
-            pairs = [((x0, y), (x0+1, y)) for y in range(begin(y0, y1), end(y0, y1), step(y0, y1))]
-        else:
-            raise RuntimeError(f"The sites ({x0}, {y0}) and ({x1}, {y1}) are not aligned")
-        dual_path_ = [self.link(prev, next, **kwargs) for prev, next in pairs]
-        return dual_path_
 
 
     def draw(self, show_links: bool = True, show_sites: bool = False, square: bool = False):

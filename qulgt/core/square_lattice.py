@@ -6,6 +6,17 @@ from qulgt.core.base_lattice import BaseLattice, Site, Plaquette, Star, LatticeE
 
 class SquareLattice(BaseLattice):
     def __init__(self, size: tuple[int, int], pbc: tuple[bool]):
+        """
+        Create a square lattice given size, shape and boundary conditions
+
+        Parameters
+        ----------
+        size : tuple[int, int]
+            Size of the horizontal and vertical sides, respectively.
+        pbc : tuple[bool, bool] (default: (False, False))
+            Whether to have periodic boundary conditions along x and y respectively.
+            PBCs are available only for the parallelogram shape.
+        """
         super().__init__(size=size, pbc=pbc, vectors=[[1, 0], [0, 1]])
 
 

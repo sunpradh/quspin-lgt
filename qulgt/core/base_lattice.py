@@ -200,9 +200,9 @@ class BaseLattice(ABC):
         return stars
 
 
-    def line(self, site0: Site, site1: Site, **kwargs) -> list[int]:
+    def line(self, site0: Site, site1: Site, **kwargs) -> list[int] | None:
         """
-        Return the indices of links that connect two sites that are on a straigth line
+        Return the indices of the links that lies on the straigth line connecting two sites
 
         Parameters
         ----------
@@ -211,14 +211,15 @@ class BaseLattice(ABC):
 
         Return
         ----------
-        path : np.array(int)
+        path : list[int] or None
             A list of the links that connects site0 and site1.
             The indexing of the links starts from 0.
+            Return `None` if no links are found
 
         Raise:
         ----------
-        RuntimeError
-                if the sites are not aligned
+        LatticeError
+            If the sites do not exists or are not aligned
         """
         if (self.site_index(site0) is None) or (self.site_index(site1) is None):
             raise LatticeError(f"Invalid sites {site0} and {site1}")
@@ -243,7 +244,7 @@ class BaseLattice(ABC):
         if not are_aligned:
             raise LatticeError(f"The sites {site0} and {site1} are not aligned")
         if len(sites) == 0:
-            raise LatticeError(f"No sites found between {site0} and {site1}")
+            return None
         path_ = [self.link(prev, next, **kwargs) for prev, next in zip_nearest(sites, periodic=False)]
         return path_
 
