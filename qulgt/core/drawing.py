@@ -2,6 +2,9 @@ import numpy as np
 from typing import Dict
 from functools import reduce
 
+from .base_lattice import LatticeT
+from .square_lattice import SquareLattice
+
 # TODO: DOCUMENTATION
 class LatticeDrawer(object):
 
@@ -60,9 +63,11 @@ class LatticeDrawer(object):
 
 
 class StateDrawer():
-    def __init__(self, lattice):
+    def __init__(self, lattice: LatticeT, spl: int):
         self.lattice = lattice
-        self.spl     = lattice.spl
+        if type(lattice) != SquareLattice:
+            raise RuntimeError("`StateDrawer` only supports `SquareLattice`")
+        self.spl     = spl
         self.N       = lattice.nlinks
         self._offsetlength = 4
         self.set_default_char_table()
