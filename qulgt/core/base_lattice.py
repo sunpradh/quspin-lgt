@@ -225,7 +225,8 @@ class BaseLattice(ABC):
             raise LatticeError(f"Invalid sites {site0} and {site1}")
         x0, y0 = site0
         x1, y1 = site1
-        diff = np.array([x1 - x0, y1 - y0])
+        deltax, deltay = x1 - x0, y1 - y0
+        # diff = np.array([x1 - x0, y1 - y0])
         sites = []
         are_aligned = False
         for lat_vec in self.lattice_vectors:
@@ -234,10 +235,10 @@ class BaseLattice(ABC):
             # (we want to preserve the integer coordinates)
             #  -> if `diff` and `lat_vec` are aligned
             #  -> then `diff` is orthogonal to 90-degrees rotated `lat_vec` (-ey, ex)
-            check = - diff[0] * ey + diff[1] * ex # scalar product
+            check = - deltax * ey + deltay * ex # scalar product
             if check == 0:
                 are_aligned = True
-                nsteps = diff[0] // ex if ex != 0 else diff[1] // ey
+                nsteps = deltax // ex if ex != 0 else deltay // ey
                 sign = nsteps // abs(nsteps)
                 sites = [(x0 + n*ex, y0 + n*ey) for n in range(0, nsteps+sign, sign)]
                 break

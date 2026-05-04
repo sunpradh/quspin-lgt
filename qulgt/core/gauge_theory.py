@@ -16,6 +16,11 @@ from quspin.basis.user import op_sig_32, op_sig_64
 
 op_fn_type = op_sig_32 | op_sig_64
 
+
+class ModelError(Exception):
+    pass
+
+
 class GaugeTheoryBase(ABC):
     """
     Base class for all the LGT models.
@@ -65,7 +70,7 @@ class GaugeTheoryBase(ABC):
         elif spl**nlinks <= 2**64:
             return np.uint64
         else:
-            raise RuntimeError(f"Lattice with size={self.size} and spl={self.spl} is too big")
+            raise ModelError(f"Lattice with size={self.size} and spl={self.spl} is too big")
 
 
     @abstractclassmethod

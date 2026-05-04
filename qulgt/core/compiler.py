@@ -2,6 +2,7 @@ import numba as nb
 import numpy as np
 import quspin.basis.user as qbu
 
+
 class Compiler(object):
 
     def __init__(self, dtype, op_fn, allowed_ops):
