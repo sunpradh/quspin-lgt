@@ -37,7 +37,7 @@ class TriangularLattice(BaseLattice):
 
 
     def __repr__(self):
-        return f"<TriangularLattice: shape={self.shape}, size={self.size}, pbc={self.pbc}>"
+        return f"<TriangularLattice: shape={self.lattice_shape}, size={self.size}, pbc={self.pbc}>"
 
 
     def _check_boundary_conditions(self, shape: str, pbc: tuple[bool, bool]):
@@ -104,6 +104,39 @@ class TriangularLattice(BaseLattice):
         if None in plaq:
             return None
         return plaq
+
+
+    def plaquettes(self, include_type: bool = False, **kwargs) -> list[Plaquette]:
+        """
+        Return a list of all the plaquettes.
+        The indices of the plaquettes start from 0 by default.
+
+        Parameters
+        ----------
+        include_type: bool (default: False)
+            Include the type of plaquette in the return object,
+            i.e. either `/\\` (type 0) or `\\/` (type 1)
+
+        Return:
+        In the case
+            `include_type=False`: list[tuple[int, int, int]]
+            `include_type=True`: list[tuple[tuple[int, int, int], int]]
+        """
+        if not include_type:
+            plaquettes = [
+                self.plaquette(site, which, **kwargs)
+                for site in self.sites
+                for which in [0, 1]
+            ]
+            plaquettes = [ p for p in plaquettes if p is not None ]
+        else:
+            plaquettes = [
+                (self.plaquette(site, which, **kwargs), which)
+                for site in self.sites
+                for which in [0, 1]
+            ]
+            plaquettes = [ (p, t) for p, t in plaquettes if p is not None ]
+        return plaquettes
 
 
     def star(self, site: Site, **kwargs) -> Star:

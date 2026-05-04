@@ -4,6 +4,8 @@ This module implements the Z2 Lattice Gauge Theory.
 
 import numba as nb
 from .znbase import ZnBase
+from ..core.base_lattice import LatticeT
+from ..core.square_lattice import SquareLattice
 
 # TODO: aggiungere type-hinting
 
@@ -44,7 +46,7 @@ def z2_op(op_struct_ptr, op_str, ind, nlinks, args):
 class Z2(ZnBase):
     modelname = 'Z2'
 
-    def __init__(self, size, pbc=(True, True), sector='all'):
+    def __init__(self, lattice: LatticeT, sector: tuple[int, int] | str = 'all'):
         """
         Create an object of the Z2 pure gauge model, with the given lattice geometry.
         The topological sector can be choosen.
@@ -62,14 +64,16 @@ class Z2(ZnBase):
             The ints can be only 0 or 1.
         """
         super().__init__(
-                size=size,
-                pbc=pbc,
+                lattice=lattice,
                 spl=2,
                 sector=sector,
                 op_fn=z2_op,
                 allowed_ops="uUvV"
             )
-        self._state_drawer.update_char_table(hlinks=[' ', '-'], vlinks=[' ', '|'])
+        self.modelname = "Z2"
+        # TODO: `_state_drawer` right now not available for triangular lattices because I have no idea on how to implement it
+        if type(self.lattice) == SquareLattice:
+            self._state_drawer.update_char_table(hlinks=[' ', '-'], vlinks=[' ', '|'])
 
     def __repr__(self):
         return f'<{self.modelname} on {self.lattice_repr()}, {self.Ns} states, sector {self.sector}>'

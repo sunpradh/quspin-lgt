@@ -6,7 +6,7 @@ from itertools import product
 import quspin.operators as qo
 
 from ..core.gauge_theory import GaugeTheoryBase, ModelError
-from ..core.mkstates     import get_mkstates_fn
+from ..core.mkstates     import StateGenerator
 from ..utils.iter        import zip_nearest
 
 no_check = dict(check_symm=False, check_pcon=False, check_herm=False)
@@ -24,8 +24,18 @@ class ZnBase(GaugeTheoryBase):
     def __init__(self, *args, **kwargs):
         """
         Base class for all pure gauge Zn models.
-        Additional kwargs:
-            sector : string (default 'all')
+        Same arguments of `GaugeTheoryBase`
+
+        Additional parameters
+        ----------
+        sector: tuple[int, int] or string (default: 'all')
+            Select the sector of the model.
+            In the case of PBC, will `0, ..., spl-1` available sectors for each
+            periodic direction, where `spl` is the number of states per link.
+            Otherwise, only one sector for each non-periodic direction is available.
+            Each sector is identified with a pair of integers `(n_x, n_y)`.
+            Otherwise, the keyword 'all' can be used to select all of them and
+            build the full physical Hilber space.
         """
         super().__init__(*args, **kwargs)
 
@@ -34,54 +44,50 @@ class ZnBase(GaugeTheoryBase):
         return f'<ZnBase on {self.lattice_repr()}, {self.Ns} states, sector {self.sector}>'
 
 
-    def _mkstates(self, **kwargs):
+    def _mkstates(self, sector: tuple[int, int] | str = "all"):
         """
         Make all the states for the basis.
 
         If a sector is specified with a pair of int then only the states
         in that sector are constructed.
         """
-        sector = kwargs.get('sector', 'all')
-
-        # list of plaquettes, with flipped integer repr
-        plaquettes = self.lattice.plaquettes(from_zero=True, flip=True)
-        # number of possible states
-        n_plq = len(plaquettes)
-        nstates = self.spl**(n_plq - 1*(self.lattice.pbc_x and self.lattice.pbc_y))
-        # convert the list to an array
-        plaquettes = np.array(plaquettes, dtype=self.dtype)
-
-        mkstates_kwargs = dict(nstates=nstates, plaquettes=plaquettes)
-        mkstates_fn = get_mkstates_fn(self.spl)
-
+        states_generator = StateGenerator(lattice=self.lattice, spl=self.spl, dtype=self.dtype)
         if sector != 'all':
             if sector in self._avail_sectors():
                 self.sector = sector
-                states = mkstates_fn(self._get_sector_vacuum(sector), **mkstates_kwargs)
+                states = states_generator(self._get_sector_vacuum(sector))
             else:
                 raise ModelError(f"The sector {sector} is not valid")
         else:
             self.sector = 'all'
             states = [
-                        mkstates_fn(self._get_sector_vacuum(sect), **mkstates_kwargs)
-                        for sect in self._avail_sectors()
-                     ]
+                states_generator(self._get_sector_vacuum(sect))
+                for sect in self._avail_sectors()
+            ]
             states = np.array(states, dtype=self.dtype).ravel()
         return states
 
 
-    def _get_sector_vacuum(self, sector):
+    def _get_sector_vacuum(self, sector: tuple[int, int]):
         """Vacuum state for a given sector"""
         if sector not in self._avail_sectors():
             raise RuntimeError(f"Specified sector {sector} is not valid")
-        vacuum  = self.dtype(0)
-        loops = [
-            self.lattice.line((0,0), (self.Lx, 0), from_zero=True, flip=True),
-            self.lattice.line((0,0), (0, self.Ly), from_zero=True, flip=True)
-        ]
-        for i in range(2):
-            for _ in range(sector[i]):
-                for l in loops[i]:
+        vacuum = self.dtype(0)
+        print(f"[_get_sector_vacuum] dtype = {self.dtype}")
+        if sector == (0, 0):
+            return vacuum
+        sector_x, sector_y = sector
+        if self.lattice.pbc_x:
+            loop_x = self.lattice.line((0, 0), (self.lattice.Lx, 0), from_zero=True, flip=True)
+            print(f"[_get_sector_vacuum] Creating loops along x, loop_x = {loop_x}")
+            for _ in range(sector_x):
+                for l in loop_x:
+                    vacuum += self.dtype(self.spl ** int(l))
+        if self.lattice.pbc_y:
+            print(f"[_get_sector_vacuum] Creating loops along y, loop_y = {loop_x}")
+            loop_y = self.lattice.line((0, 0), (0, self.lattice.Ly), from_zero=True, flip=True)
+            for _ in range(sector_y):
+                for l in loop_y:
                     vacuum += self.dtype(self.spl ** int(l))
         return vacuum
 

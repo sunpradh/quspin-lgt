@@ -1,7 +1,12 @@
+"""
+This module implements the Z_N Lattice Gauge Theory for n > 2
+"""
 import numba as nb
 import numpy as np
 
 from .znbase import ZnBase
+from ..core.base_lattice import LatticeT
+from ..core.square_lattice import SquareLattice
 
 def make_ZN_op(N):
     """Generate the operator set of a ZN theory with given N"""
@@ -38,7 +43,7 @@ def make_ZN_op(N):
 
 
 class ZN(ZnBase):
-    def __init__(self, N, size, pbc=(True, True), sector='all'):
+    def __init__(self, N, lattice: LatticeT, sector: tuple[int, int] | str = 'all'):
         """
         Create an object of the ZN pure gauge model, with the given lattice geometry.
         The topological sector and the dimension of the local Hilbert space can be choosen.
@@ -57,19 +62,19 @@ class ZN(ZnBase):
 
         """
         super().__init__(
-            size=size,
-            pbc=pbc,
+            lattice=lattice,
             spl=N,
             sector=sector,
             op_fn=make_ZN_op(N),
             allowed_ops="UuVv"
             )
         self.modelname = 'Z' + str(N)
-        if N == 3:
-            self._state_drawer.update_char_table(
-                hlinks=[' ', '→', '←'],
-                vlinks=[' ', '↑', '↓']
-                )
+        if type(self.lattice) == SquareLattice:
+            if N == 3:
+                self._state_drawer.update_char_table(
+                    hlinks=[' ', '→', '←'],
+                    vlinks=[' ', '↑', '↓']
+                    )
 
     def __repr__(self):
         return f'<{self.modelname} on {self.lattice_repr()}, {self.Ns} states, sector {self.sector}>'

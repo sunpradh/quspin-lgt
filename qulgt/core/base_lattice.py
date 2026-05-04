@@ -184,7 +184,6 @@ class BaseLattice(ABC):
         Return a list of all the plaquettes.
         The indices of the plaquettes start from 0 by default.
         """
-        kwargs.setdefault('from_zero', True)
         plaquettes = [ self.plaquette(site, **kwargs) for site in self.sites ]
         plaquettes = [ p for p in plaquettes if p is not None ]
         return plaquettes

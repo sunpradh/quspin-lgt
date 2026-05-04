@@ -14,9 +14,6 @@ from .drawing        import StateDrawer
 
 from quspin.basis.user import op_sig_32, op_sig_64
 
-op_fn_type = op_sig_32 | op_sig_64
-
-
 class ModelError(Exception):
     pass
 
@@ -31,7 +28,7 @@ class GaugeTheoryBase(ABC):
     def __init__(self,
                  lattice: LatticeT,
                  spl: int,
-                 op_fn: op_fn_type,
+                 op_fn: op_sig_32 | op_sig_64,
                  allowed_ops: str,
                  **kwargs):
         """
