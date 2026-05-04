@@ -5,9 +5,9 @@ import numpy as np
 from itertools import product
 import quspin.operators as qo
 
-from ..core.base     import GaugeTheoryBase
-from ..core.mkstates import get_mkstates_fn
-from ..utils.iter import zip_nearest
+from ..core.gauge_theory import GaugeTheoryBase, ModelError
+from ..core.mkstates     import get_mkstates_fn
+from ..utils.iter        import zip_nearest
 
 no_check = dict(check_symm=False, check_pcon=False, check_herm=False)
 
@@ -17,6 +17,7 @@ def make_op_str(next, prev, op_str):
     dir = 0 if next[1] == prev[1] else 1
     length = abs(next[dir] - prev[dir])
     return (op_str[0] if next[dir] > prev[dir] else op_str[1]) * length
+
 
 class ZnBase(GaugeTheoryBase):
 
@@ -28,8 +29,10 @@ class ZnBase(GaugeTheoryBase):
         """
         super().__init__(*args, **kwargs)
 
+
     def __repr__(self):
         return f'<ZnBase on {self.lattice_repr()}, {self.Ns} states, sector {self.sector}>'
+
 
     def _mkstates(self, **kwargs):
         """
@@ -41,10 +44,10 @@ class ZnBase(GaugeTheoryBase):
         sector = kwargs.get('sector', 'all')
 
         # list of plaquettes, with flipped integer repr
-        plaquettes = self.plaquettes(from_zero=True, flip=True)
+        plaquettes = self.lattice.plaquettes(from_zero=True, flip=True)
         # number of possible states
         n_plq = len(plaquettes)
-        nstates = self.spl**(n_plq - 1*(self.pbc_x and self.pbc_y))
+        nstates = self.spl**(n_plq - 1*(self.lattice.pbc_x and self.lattice.pbc_y))
         # convert the list to an array
         plaquettes = np.array(plaquettes, dtype=self.dtype)
 
@@ -56,7 +59,7 @@ class ZnBase(GaugeTheoryBase):
                 self.sector = sector
                 states = mkstates_fn(self._get_sector_vacuum(sector), **mkstates_kwargs)
             else:
-                raise RuntimeError(f"The sector {sector} is not valid")
+                raise ModelError(f"The sector {sector} is not valid")
         else:
             self.sector = 'all'
             states = [
@@ -66,14 +69,15 @@ class ZnBase(GaugeTheoryBase):
             states = np.array(states, dtype=self.dtype).ravel()
         return states
 
+
     def _get_sector_vacuum(self, sector):
         """Vacuum state for a given sector"""
         if sector not in self._avail_sectors():
             raise RuntimeError(f"Specified sector {sector} is not valid")
         vacuum  = self.dtype(0)
         loops = [
-            self.path((0,0), (self.Lx, 0), flip=True),
-            self.path((0,0), (0, self.Ly), flip=True)
+            self.lattice.line((0,0), (self.Lx, 0), from_zero=True, flip=True),
+            self.lattice.line((0,0), (0, self.Ly), from_zero=True, flip=True)
         ]
         for i in range(2):
             for _ in range(sector[i]):
@@ -81,10 +85,12 @@ class ZnBase(GaugeTheoryBase):
                     vacuum += self.dtype(self.spl ** int(l))
         return vacuum
 
+
     def _avail_sectors(self):
-        x_sectors = range(self.spl if self.pbc_x else 1)
-        y_sectors = range(self.spl if self.pbc_y else 1)
+        x_sectors = range(self.spl if self.lattice.pbc_x else 1)
+        y_sectors = range(self.spl if self.lattice.pbc_y else 1)
         return product(x_sectors, y_sectors)
+
 
     def coupling_plaquettes(self, coupling=0.0):
         """
@@ -100,11 +106,12 @@ class ZnBase(GaugeTheoryBase):
         ----------
         plq : list
         """
-        plqs = self.plaquettes()
+        plqs = self.lattice.plaquettes(from_zero=True)
         plq_arr = np.zeros((len(plqs), 5))
         plq_arr[:, 1:] = np.array(plqs)
         plq_arr[:, 0 ] = coupling
         return plq_arr.tolist()
+
 
     def coupling_links(self, coupling=0.0):
         """
@@ -120,10 +127,11 @@ class ZnBase(GaugeTheoryBase):
         ----------
         plq : list
         """
-        link_array = np.zeros((self.nlinks, 2))
+        link_array = np.zeros((self.lattice.nlinks, 2))
         link_array[:, 0] = coupling
-        link_array[:, 1] = np.arange(self.nlinks)
+        link_array[:, 1] = np.arange(self.lattice.nlinks)
         return link_array.tolist()
+
 
     def hamiltonian(self, plq, elec, dtype=np.complex128):
         """
@@ -162,6 +170,7 @@ class ZnBase(GaugeTheoryBase):
                     **no_check # do not perform any checks
                 )
 
+
     def quantum_operator(self, plq, elec, dtype=np.complex128, which='ham'):
         """
         Return the quspin.operators.quantum_operator for the hamiltonian
@@ -189,7 +198,7 @@ class ZnBase(GaugeTheoryBase):
                 elec     = elec_list,
                 elec_dag = elec_list_dag,
             )
-            self._quantum_operator = qo.quantum_operator(input_dict, N=self.nlinks, basis=self.qbasis, dtype=dtype, **no_check)
+            self._quantum_operator = qo.quantum_operator(input_dict, N=self.lattice.nlinks, basis=self.qbasis, dtype=dtype, **no_check)
 
         if which == 'quantop':
             return self._quantum_operator
@@ -201,6 +210,7 @@ class ZnBase(GaugeTheoryBase):
                 return self._quantum_operator.aslinearoperator(couplings)
             else:
                 raise RuntimeError(f'Unrecognized option which="{which}"')
+
 
     def wilson_loop(self, sites, dtype=np.complex128):
         """
@@ -221,7 +231,7 @@ class ZnBase(GaugeTheoryBase):
         """
         # get the loop path
 
-        loop = self.loop(sites)
+        loop = self.lattice.loop(sites)
         # build the operator string (it depends on the orientation of the path)
 
         op_str = ""
@@ -230,6 +240,7 @@ class ZnBase(GaugeTheoryBase):
 
         op_list = [op_str, [[1.0, *loop]]]
         return qo.hamiltonian([op_list], [], basis=self.qbasis, dtype=dtype, **no_check)
+
 
     def string_operator(self, plaquettes, dtype=np.complex128):
         """
@@ -251,7 +262,7 @@ class ZnBase(GaugeTheoryBase):
         S : quspin.hamiltonian
         """
         # Get the string path
-        string = self.string(plaquettes)
+        string = self.lattice.string(plaquettes)
 
         op_str = ""
         for prev, next in zip_nearest(plaquettes, periodic=False):
