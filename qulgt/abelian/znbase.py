@@ -2,7 +2,7 @@
 This module implements the Zn lattice gauge theory base class
 """
 import numpy as np
-from itertools import product
+from itertools import product, groupby
 import quspin.operators as qo
 
 from ..core.gauge_theory import GaugeTheoryBase, ModelError
@@ -176,7 +176,130 @@ class ZnBase(GaugeTheoryBase):
                     **no_check # do not perform any checks
                 )
 
+    def coupling_plaquettes_gen(self, coupling=0.0, include_type: bool = False):
+        """
+        Return an array of all plaquettes and their coupling.
+        Useful for the Hamiltonian construction with QuSpin.
 
+        Parameters
+        ----------
+        coupling : float or np.array(float) (default: 0.0)
+            coupling of the plaquettes
+
+        Return
+        ----------
+        plq : list
+        """
+        if not include_type:
+            plqs = self.lattice.plaquettes(from_zero=True)
+            nplaqlinks = len(plqs[0])
+            plq_arr = np.zeros((len(plqs), nplaqlinks+1))
+            plq_arr[:, 1:] = np.array(plqs)
+            plq_arr[:, 0 ] = coupling
+            return [([plq_arr[i] for i in range(len(plqs))], None)]
+        else:
+            plqs = self.lattice.plaquettes(from_zero=True,include_type=include_type)
+            nplaqlinks = len(plqs[0][0])
+            plqs = [plaq[0] for plaq in plqs]
+            plq_arr = np.zeros((len(plqs), nplaqlinks+1))
+            plq_arr[:, 1:] = np.array(plqs)
+            plq_arr[:, 0 ] = coupling
+            list_array = [(plq_arr[i], plqs[i][1]) for i in range(len(plqs))]
+            data = sorted(list_array, key=lambda x: x[1])
+
+            return [(np.stack([v[0] for v in group]), key) 
+                    for key, group in groupby(data, key=lambda x: x[1])] 
+    
+    def mk_plqs_str_tri_type_0(self, conj: bool = False):
+        if not conj:
+            return "UUu"
+        else:
+            return "uuU"
+    
+    def mk_plqs_str_tri_type_1(self, conj: bool = False):
+        if not conj:
+            return "Uuu"
+        else:
+            return "uUU"
+    
+    def mk_plqs_str_square(self, conj: bool = False):
+        if not conj:
+            return "UUuu"
+        else:
+            return "uuUU"
+
+    def mk_plqs_str(self, conj: bool = False, which = None):
+        if which is None:
+            return self.mk_plqs_str_square(conj=conj)
+        elif which == 0:
+            return self.mk_plqs_str_tri_type_0(conj=conj)
+        elif which == 1:
+            return self.mk_plqs_str_tri_type_1(conj=conj)
+    
+    def mk_plqs_list(self, coupling=0.0, include_type: bool = False):
+        """
+        Return a list of the plaquettes with the operator string 
+        related to the plaquettes, and the conjugate version. In case the
+        type is False, we fall to the simple case of square plaquettes.
+        If include_type is True, we have different types of plaquettes
+        which have a different string operator to represent the quantum operation.
+
+        Parameters
+        ----------
+        coupling : float (default: 0.0)
+            coupling on the plaquette term
+        include_type : bool (default: False)
+            we can have different operator plaquette terms according to the lattice
+            geometry. If False it gives the links of a square plaquette, else a triangular
+            lattice has two types of plaquettes i.e. either `/\\` (type 0) or `\\/` (type 1)
+        """
+        plq_arr = self.coupling_plaquettes_gen(coupling=coupling, include_type=include_type)
+        plq_conj_arr = self.coupling_plaquettes_gen(coupling=np.conj(coupling), include_type=include_type)
+        plaq_list = [[self.mk_plqs_str(conj=False, which=which), coup_plqs] for (coup_plqs, which) in plq_arr]
+        plaq_conj_list = [[self.mk_plqs_str(conj=True, which=which), coup_plqs] for (coup_plqs, which) in plq_conj_arr]
+        return plaq_list + plaq_conj_list
+    
+    def hamiltonian_gen(self, plq, elec, dtype=np.complex128):
+        """
+        Return a Hamiltonian (a QuSpin object) with the specified
+        coupling.  Only static interaction, no dynamics.
+
+        Parameters
+        ----------
+        plq : float or np.array
+            coupling on the plaquettes term
+        elec : float or np.array
+            electric field coupling (on the links)
+        dtype : numpy.dtype, optional (default: np.complex128)
+            dtype of the Hamiltonian. Default: np.complex128
+
+        Return
+        ----------
+        H : quspin.hamiltonian
+            A QuSpin operator that represent the Hamiltonian con
+        """
+        coupling_links      = self.coupling_links(elec)
+        coupling_links_conj = self.coupling_links(np.conj(elec))
+        links_list = [
+            ["V",    coupling_links],     # V
+            ["v",    coupling_links_conj] # Vdag
+        ]
+        if len(self.lattice.lattice_vectors) == 3:
+            include_type = True
+        else:
+            include_type = False
+        plqs_list = self.mk_plqs_list(coupling=plq, include_type=include_type)
+        slist = links_list + plqs_list
+
+        return qo.hamiltonian(
+                    slist, # static list
+                    [], # empty dynamic list (no time dependency)
+                    basis=self.qbasis,
+                    dtype=dtype,
+                    **no_check # do not perform any checks
+                )
+        
+        
     def quantum_operator(self, plq, elec, dtype=np.complex128, which='ham'):
         """
         Return the quspin.operators.quantum_operator for the hamiltonian

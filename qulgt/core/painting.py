@@ -68,3 +68,4 @@ def paint_lattice(lattice,
                         backgroundcolor="#ffffffcc",
                         zorder=3
                     )
+    plt.show()
