@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 This module implements the base class through which the LGT model interfaces
 with the QuSpin class quspin.basis.user_basis

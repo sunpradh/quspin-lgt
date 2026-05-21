@@ -196,19 +196,23 @@ class ZnBase(GaugeTheoryBase):
             plq_arr = np.zeros((len(plqs), nplaqlinks+1))
             plq_arr[:, 1:] = np.array(plqs)
             plq_arr[:, 0 ] = coupling
+            plq_arr = plq_arr.tolist()
             return [([plq_arr[i] for i in range(len(plqs))], None)]
         else:
             plqs = self.lattice.plaquettes(from_zero=True,include_type=include_type)
             nplaqlinks = len(plqs[0][0])
+            which = [plaq[1] for plaq in plqs]
             plqs = [plaq[0] for plaq in plqs]
             plq_arr = np.zeros((len(plqs), nplaqlinks+1))
             plq_arr[:, 1:] = np.array(plqs)
             plq_arr[:, 0 ] = coupling
-            list_array = [(plq_arr[i], plqs[i][1]) for i in range(len(plqs))]
+            plq_arr = plq_arr.tolist()
+            list_array = [(plq_arr[i], which[i]) for i in range(len(plqs))]
             data = sorted(list_array, key=lambda x: x[1])
 
-            return [(np.stack([v[0] for v in group]), key) 
-                    for key, group in groupby(data, key=lambda x: x[1])] 
+            list_array = [(np.stack([v[0] for v in group]), key) 
+                    for key, group in groupby(data, key=lambda x: x[1])]
+            return [[elem[0].tolist(), elem[1]] for elem in list_array] 
     
     def mk_plqs_str_tri_type_0(self, conj: bool = False):
         if not conj:
