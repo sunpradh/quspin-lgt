@@ -86,12 +86,12 @@ def zn_tri_plaq_op(state, plaquette, plaq_type, spl):
     """Zn plaquette operator in the electric basis on a triangular lattice"""
     if plaq_type == 0:
         state = zn_U_op(state, plaquette[0], spl)
-        state = zn_U_op(state, plaquette[0], spl)
-        state = zn_Udag_op(state, plaquette[0], spl)
+        state = zn_U_op(state, plaquette[1], spl)
+        state = zn_Udag_op(state, plaquette[2], spl)
     elif plaq_type == 1:
         state = zn_U_op(state, plaquette[0], spl)
-        state = zn_Udag_op(state, plaquette[0], spl)
-        state = zn_Udag_op(state, plaquette[0], spl)
+        state = zn_Udag_op(state, plaquette[1], spl)
+        state = zn_Udag_op(state, plaquette[2], spl)
     return state
 
 
