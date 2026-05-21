@@ -1,5 +1,7 @@
 # QuSpin-LGT
 
+**THE README IS OUTDATED**
+
 Exact diagonalization for lattice gauge theories using the [QuSpin](https://github.com/weinbe58/QuSpin) package for python.
 
 ## Examples
