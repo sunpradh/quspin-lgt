@@ -294,7 +294,7 @@ class ZnBase(GaugeTheoryBase):
             include_type = False
         plqs_list = self.mk_plqs_list(coupling=plq, include_type=include_type)
         slist = links_list + plqs_list
-        print(slist)
+
         return qo.hamiltonian(
                     slist, # static list
                     [], # empty dynamic list (no time dependency)
